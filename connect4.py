@@ -1,35 +1,24 @@
 import os, sys
 import itertools
 
-class Game (object):
+class Board (object):
 
-  columns = range (1, 8)
-  rows = range (1, 7)
-  n_to_win = 4
-  players = itertools.cycle (['X', 'O'])
+  def __init__ (self, n_columns=7, n_rows=6, board=None):
+    self.columns = range (1, n_columns+1)
+    self.rows = range (1, n_rows+1)
+    if board:
+      self._board = dict (board)
+    else:
+      self._board = {}
 
-  def __init__ (self):
-    self.board = {}
+  def __repr__ (self):
+    return "<%s: %s>" % (self.__class__.__name__, repr (self._board))
 
   def __str__ (self):
-    return self.board_as_string ()
+    return self.as_string ()
 
-  def board_as_string (self):
-    return "\n".join ("|".join (self.board.get ((column, row), ".") for column in self.columns) for row in self.rows[::-1])
-
-  def turn (self, player, column):
-    print "Turn for player %r - %r" % (player, column)
-    row = 1 + max ([r for c, r in self.board.keys () if c == column] or [0])
-
-    if column not in self.columns:
-      print "Column must be between %d and %d" % (min (self.columns), max (self.columns))
-    elif row not in self.rows:
-      print "Column %d is already full" % column
-    else:
-      print "Intersecting:"
-      for line in self.intersecting_lines (column, row):
-        print line
-      self.board[column, row] = player
+  def as_string (self):
+    return "\n".join ("|".join (self._board.get ((column, row), ".") for column in self.columns) for row in self.rows[::-1])
 
   def intersecting_lines (self, column, row):
     yield [(c, r) for c in self.columns for r in self.rows if c == column]
@@ -37,39 +26,73 @@ class Game (object):
     yield [(c, r) for c in self.columns for r in self.rows if c + r == column + row]
     yield [(c, r) for c in self.columns for r in self.rows if c - r == column - row]
 
-  def check_for_win (self, player):
-    winning_run = player * self.n_to_win
-
-    for row in self.rows:
-      if winning_run in "".join (self.board.get ((column, row), ".") for column in self.columns):
-        return True
-
-    for column in self.columns:
-      if winning_run in "".join (self.board.get ((column, row), ".") for row in self.rows):
-        return True
-
-    offsets = range (min (len (self.rows), len (self.columns)))
-    for offset in offsets:
-      if winning_run in "".join (self.board.get ((column, row), ".") for column in self.columns for row in self.rows if row + column == offset):
-        return True
-      if winning_run in "".join (self.board.get ((column, row), ".") for column in self.columns for row in self.rows if row - column == offset):
-        return True
-
-    return False
+  def column_height (self, column):
+    return max ([r for c, r in self._board.keys () if c == column] or [0])
 
   def possible_moves (self):
-    return [column for column in self.columns if max ([r for c, r in self.board.keys () if c == column] or [0]) < len (self.rows)]
+    for column in self.columns:
+      row = 1 + self.column_height (column)
+      if row <= max (self.rows):
+        yield column, row
+
+  def make_move (self, player, column):
+    self._board[column, 1 + self.column_height (column)] = player
+
+  def win_for (self, n_to_win=4):
+    for player in set (self._board.values ()):
+      winning_run = player * n_to_win
+
+      for row in self.rows:
+        if winning_run in "".join (self._board.get ((column, row), ".") for column in self.columns):
+          return player
+
+      for column in self.columns:
+        if winning_run in "".join (self._board.get ((column, row), ".") for row in self.rows):
+          return player
+
+      offsets = range (min (len (self.rows), len (self.columns)))
+      for offset in offsets:
+        if winning_run in "".join (self._board.get ((column, row), ".") for column in self.columns for row in self.rows if row + column == offset):
+          return player
+        if winning_run in "".join (self._board.get ((column, row), ".") for column in self.columns for row in self.rows if row - column == offset):
+          return player
+
+    return None
+
+  def project (self, player, counter):
+    board = self.__class__ (
+      n_columns=len (self.columns),
+      n_rows=len(self.rows),
+      board=self._board
+    )
+    board.make_move (player, counter)
+    return board
+
+class Game (object):
+
+  n_to_win = 4
+  players = itertools.cycle (['X', 'O'])
+
+  def __init__ (self):
+    self.board = Board ()
+
+  def turn (self, player, column):
+    print "Turn for player %r - %r" % (player, column)
+    if column not in (c for c, r in self.board.possible_moves ()):
+      raise ValueError, "Invalid move"
+    self.board.make_move (column, player)
 
   def play (self):
-    print self.board_as_string ()
+    print self.board.as_string ()
 
     while True:
       player = self.players.next ()
       column = int (raw_input ("Player %s: " % player))
       self.turn (player, column)
-      print self.board_as_string ()
+      print self.board.as_string ()
 
-      if self.check_for_win (player):
+      winner = self.board.win_for ()
+      if winner:
         print "%s wins!" % player
         break
 
