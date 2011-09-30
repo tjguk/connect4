@@ -57,40 +57,21 @@ class Board (object):
     yield [(c, r) for c in self.columns for r in self.rows if c + r == column + row]
     yield [(c, r) for c in self.columns for r in self.rows if c - r == column - row]
 
-  def win_for (self, player, column, row):
+  def win_for (self, player, column, row=None):
     """Determine whether a specific player has won. Given the nature of the game,
     only the player who has just moved can possibly have won, and only by completing
     a line which contains his latest position.
     """
     winning_run = player * self.n_to_win
     log.debug ("winning_run = %s", winning_run)
+    if row is None:
+      row = max (r for c, r in self._board if c == column)
     for line in self.intersecting_lines (column, row):
       log.debug ("line: %s", "".join (self._board.get ((c, r), ".") for (c, r) in line))
       if winning_run in "".join (self._board.get ((c, r), ".") for (c, r) in line):
         return True
     else:
       return False
-
-  def DO_NOT_USE (self):
-    for player in set (self._board.values ()):
-      winning_run = player * n_to_win
-
-      for row in self.rows:
-        if winning_run in "".join (self._board.get ((column, row), ".") for column in self.columns):
-          return player
-
-      for column in self.columns:
-        if winning_run in "".join (self._board.get ((column, row), ".") for row in self.rows):
-          return player
-
-      offsets = range (min (len (self.rows), len (self.columns)))
-      for offset in offsets:
-        if winning_run in "".join (self._board.get ((column, row), ".") for column in self.columns for row in self.rows if row + column == offset):
-          return player
-        if winning_run in "".join (self._board.get ((column, row), ".") for column in self.columns for row in self.rows if row - column == offset):
-          return player
-
-    return None
 
   def project (self, player, column):
     """Return the state of the board after a player has dropped their counter
@@ -128,8 +109,7 @@ class Game (object):
       self.turn (player, column)
       print self.board.as_string ()
 
-      winner = self.board.win_for ()
-      if winner:
+      if self.board.win_for (player, column):
         print "%s wins!" % player
         break
 
