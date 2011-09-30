@@ -1,6 +1,8 @@
 import os, sys
+import copy
 import itertools
 import logging
+import random
 
 log = logging.getLogger ("connect4")
 
@@ -37,10 +39,7 @@ class Board (object):
     """Determine all valid columns from the board's current position. This can
     be used both to validate an entered move and to look ahead
     """
-    for column in self.columns:
-      row = 1 + self.column_height (column)
-      if row <= max (self.rows):
-        yield column
+    return [column for column in self.columns if 1 + self.column_height (column) <= max (self.rows)]
 
   def make_move (self, player, column):
     """Make a player's move by "dropping" his counter onto the highest available
@@ -57,15 +56,14 @@ class Board (object):
     yield [(c, r) for c in self.columns for r in self.rows if c + r == column + row]
     yield [(c, r) for c in self.columns for r in self.rows if c - r == column - row]
 
-  def win_for (self, player, column, row=None):
+  def win_for (self, player, column):
     """Determine whether a specific player has won. Given the nature of the game,
     only the player who has just moved can possibly have won, and only by completing
     a line which contains his latest position.
     """
     winning_run = player * self.n_to_win
     log.debug ("winning_run = %s", winning_run)
-    if row is None:
-      row = max (r for c, r in self._board if c == column)
+    row = max ([r for c, r in self._board if c == column] or [0])
     for line in self.intersecting_lines (column, row):
       log.debug ("line: %s", "".join (self._board.get ((c, r), ".") for (c, r) in line))
       if winning_run in "".join (self._board.get ((c, r), ".") for (c, r) in line):
@@ -85,13 +83,49 @@ class Board (object):
     board.make_move (player, column)
     return board
 
+  def best_position (self, players):
+    """Take the simple approach:
+    * If there's a winning move, take it
+    * If there's a move to block the next player's win, take it
+    * Otherwise, take the first valid move
+    """
+    valid_columns = self.valid_columns ()
+    _players = copy.copy (players)
+    for player in (_players.this (), _players.next ()):
+      for column in valid_columns:
+        board = self.project (player, column)
+        if board.win_for (player, column):
+          return column
+    else:
+      return random.choice (valid_columns)
+
+class Players (object):
+
+  def __init__ (self, players):
+    self._players = players
+    self._n_player = 0
+
+  def this (self):
+    return self._players[(self._n_player - 1) % len (self._players)]
+
+  def next (self):
+    n_player, self._n_player = self._n_player, (self._n_player + 1) % len (self._players)
+    return self._players[n_player]
+
+  def peek (self):
+    return self._players[self._n_player]
+
+  def reset (self):
+    self._n_player = 0
+
 class Game (object):
 
   n_to_win = 4
-  players = itertools.cycle (['X', 'O'])
+  PLAYERS = "ABCDEFG"
 
-  def __init__ (self):
+  def __init__ (self, n_players):
     self.board = Board ()
+    self.players = iter (Players (self.PLAYERS[:n_players]))
 
   def turn (self, player, column):
     print "Turn for player %r - %r" % (player, column)
