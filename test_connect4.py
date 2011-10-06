@@ -9,32 +9,33 @@ connect4.log.addHandler (logging.StreamHandler ())
 class TestBoard (unittest.TestCase):
 
   def setUp (self):
-    self.board = connect4.Board ()
+    self.players = connect4.Players ("OX")
+    self.board = connect4.Board (self.players)
 
   def tearDown (self):
     pass
 
   def test_empty_board (self):
-    board = connect4.Board ()
-    self.assertFalse (board.counters ())
+    board = connect4.Board (self.players)
+    self.assertFalse (board._board)
 
   def test_board_rows (self):
-    board = connect4.Board (n_rows=3)
+    board = connect4.Board (self.players, n_rows=3)
     self.assertEqual (board.rows, [1, 2, 3])
 
   def test_board_columns (self):
-    board = connect4.Board (n_columns=3)
+    board = connect4.Board (self.players, n_columns=3)
     self.assertEqual (board.columns, [1, 2, 3])
 
   def test_board_to_win (self):
-    board = connect4.Board (n_to_win=3)
-    self.assertFalse (board.win_for ('X', 1))
+    board = connect4.Board (self.players, n_to_win=3)
+    self.assertNotEqual (board.win_for ('X', 1), ("win", "X"))
     board.make_move ('X', 1)
-    self.assertFalse (board.win_for ('X', 1))
+    self.assertNotEqual (board.win_for ('X', 1), ("win", "X"))
     board.make_move ('X', 1)
-    self.assertFalse (board.win_for ('X', 1))
+    self.assertNotEqual (board.win_for ('X', 1), ("win", "X"))
     board.make_move ('X', 1)
-    self.assertTrue (board.win_for ('X', 1))
+    self.assertEqual (board.win_for ('X', 1), ("win", "X"))
 
   def test_valid_columns (self):
     self.assertEqual (list (self.board.valid_columns ()), self.board.columns)
@@ -51,12 +52,12 @@ class TestBoard (unittest.TestCase):
     self.assertEqual (self.board.column_height (1), 1)
 
   def test_make_move (self):
-    self.assertEqual (self.board.counters (), {})
+    self.assertEqual (self.board._board, {})
     self.board.make_move ('X', 1)
-    self.assertEqual (self.board.counters (), {(1, 1) : 'X'})
+    self.assertEqual (self.board._board, {(1, 1) : 'X'})
 
   def test_intersecting_lines (self):
-    board = connect4.Board (3, 3)
+    board = connect4.Board (self.players, 3, 3)
     self.assertEqual (
       set (tuple (line) for line in board.intersecting_lines (2, 2)),
       set ([
@@ -70,8 +71,8 @@ class TestBoard (unittest.TestCase):
   def test_project (self):
     board = self.board.project ('X', 1)
     self.assertIsNot (board, self.board)
-    self.assertNotEqual (board.counters (), self.board.counters ())
-    self.assertDictEqual (board.counters (), {(1, 1) : 'X'})
+    self.assertNotEqual (board._board, self.board._board)
+    self.assertDictEqual (board._board, {(1, 1) : 'X'})
 
 class TestPlayers (unittest.TestCase):
 

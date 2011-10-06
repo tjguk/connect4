@@ -8,7 +8,8 @@ log = logging.getLogger ("connect4")
 
 class Board (object):
 
-  def __init__ (self, n_columns=7, n_rows=6, n_to_win=4, board=None):
+  def __init__ (self, players, n_columns=7, n_rows=6, n_to_win=4, board=None):
+    self.players = players
     self.columns = range (1, n_columns+1)
     self.rows = range (1, n_rows+1)
     self.n_to_win = n_to_win
@@ -28,9 +29,6 @@ class Board (object):
 
   def as_string (self):
     return "\n".join ("|".join (self._board.get ((column, row), ".") for column in self.columns) for row in self.rows[::-1])
-
-  def counters (self):
-    return dict (self._board)
 
   def column_height (self, column):
     return max ([r for c, r in self._board.keys () if c == column] or [0])
@@ -61,21 +59,44 @@ class Board (object):
     only the player who has just moved can possibly have won, and only by completing
     a line which contains his latest position.
     """
+    return self.result (column) == "win", player
+
+  def result (self, column=None):
+    """Determine whether a specific player has won. Given the nature of the game,
+    only the player who has just moved can possibly have won, and only by completing
+    a line which contains his latest position.
+    """
+    if not self._board:
+      return None, None
+
+    if column is None:
+      columns = self.columns
+    else:
+      columns = [column]
+
     winning_run = player * self.n_to_win
     log.debug ("winning_run = %s", winning_run)
-    row = max ([r for c, r in self._board if c == column] or [0])
-    for line in self.intersecting_lines (column, row):
-      log.debug ("line: %s", "".join (self._board.get ((c, r), ".") for (c, r) in line))
-      if winning_run in "".join (self._board.get ((c, r), ".") for (c, r) in line):
-        return True
+
+    for column in columns:
+      rows = [r for c, r in self._board if c == column]
+      if rows:
+        row = max (rows)
+        for line in self.intersecting_lines (column, row):
+          log.debug ("line: %s", "".join (self._board.get ((c, r), ".") for (c, r) in line))
+          if winning_run in "".join (self._board.get ((c, r), ".") for (c, r) in line):
+            return "win", player
+
+    if len (self._board) == len (self.columns) * len (self.rows):
+      return "stalemate", None
     else:
-      return False
+      return None, None
 
   def project (self, player, column):
     """Return the state of the board after a player has dropped their counter
     in a particular column. This would usually be used to look ahead.
     """
     board = self.__class__ (
+      copy.copy (self.players),
       n_columns=len (self.columns),
       n_rows=len(self.rows),
       board=self._board
@@ -121,11 +142,11 @@ class Players (object):
 class Game (object):
 
   n_to_win = 4
-  PLAYERS = "ABCDEFG"
+  PLAYERS = "OX"
 
   def __init__ (self, n_players):
-    self.board = Board ()
-    self.players = iter (Players (self.PLAYERS[:n_players]))
+    self.players = Players (self.PLAYERS[:n_players])
+    self.board = Board (self.players)
 
   def turn (self, player, column):
     print "Turn for player %r - %r" % (player, column)
@@ -143,8 +164,12 @@ class Game (object):
       self.turn (player, column)
       print self.board.as_string ()
 
-      if self.board.win_for (player, column):
-        print "%s wins!" % player
+      result, winner = self.board.result ()
+      if result == "win":
+        print "%s wins" % winner
+        break
+      elif result == "stalemate":
+        print "No-one wins"
         break
 
 def main ():
