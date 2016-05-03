@@ -1,8 +1,14 @@
+from __future__ import print_function
 import os, sys
 import copy
 import itertools
 import logging
 import random
+
+try:
+    raw_input
+except NameError:
+    raw_input = input
 
 log = logging.getLogger ("connect4")
 
@@ -149,31 +155,31 @@ class Game (object):
     self.board = Board (self.players)
 
   def turn (self, player, column):
-    print "Turn for player %r - %r" % (player, column)
+    print("Turn for player %r - %r" % (player, column))
     valid_columns = list (self.board.valid_columns ())
     if column not in valid_columns:
-      raise ValueError, "Invalid move"
+      raise ValueError("Invalid move")
     self.board.make_move (player, column)
 
   def play (self):
-    print self.board.as_string ()
+    print(self.board.as_string ())
 
     while True:
       player = self.players.next ()
       column = int (raw_input ("Player %s: " % player))
       self.turn (player, column)
-      print self.board.as_string ()
+      print(self.board.as_string ())
 
       result, winner = self.board.result ()
       if result == "win":
-        print "%s wins" % winner
+        print("%s wins" % winner)
         break
       elif result == "stalemate":
-        print "No-one wins"
+        print("No-one wins")
         break
 
-def main ():
-  Game ().play ()
+def main (n_players=2):
+  Game (int(n_players)).play ()
 
 if __name__ == '__main__':
   main (*sys.argv[1:])
